@@ -215,6 +215,7 @@ functions:
   0x1400E1DB0: IsInDelubrumReginae # Delubrum Reginae, Delubrum Reginae (Savage)
   0x1400E1DD0: IsInAnythingBozjaRelated # Bozja, Delubrum Reginae, Delubrum Reginae (Savage), Gangos
   0x1400E1E00: IsInOccultCrescent
+  0x1400E1E20: IsInCrucibleOfTheUnbroken
   0x1400E1F20: IsInIslandSanctuary
   0x1400E1F50: IsInBlunderville
   0x1400E1F70: IsInCosmicExploration
@@ -1084,6 +1085,10 @@ classes:
       - ea: 0x1421269C0
     vfuncs:
       0: dtor
+      1: Initialize
+      2: Update
+      3: Deinitialize
+      4: GetData
       13: SetVibration
   Client::System::Input::PadDevice:
     vtbls:
@@ -1100,6 +1105,12 @@ classes:
       - ea: 0x1422D7E78
     vfuncs:
       0: dtor
+      1: Initialize
+      2: Update
+      3: Deinitialize
+      4: GetData
+      5: ResetState
+      6: SetAcquired
   Client::System::Input::MouseDevice:
     vtbls:
       - ea: 0x1422D7EC0
@@ -1111,19 +1122,28 @@ classes:
     funcs:
       0x14178D640: ctor
       0x14178DB30: ScheduleCursorMove # static
+      0x14178DBF0: ProcessMouseInputMessage # static
   Client::System::Input::KeyboardDeviceInterface:
     vtbls:
       - ea: 0x142177F08
+    vfuncs:
+      0: dtor
+      1: Initialize
+      2: Update
+      3: Deinitialize
+      4: GetData
+      5: ResetState
+      6: SendKey
+      7: GetIsKeyboardConnected
   Client::System::Input::KeyboardDevice:
     vtbls:
       - ea: 0x142177F48
         base: Client::System::Input::KeyboardDeviceInterface
       - ea: 0x142177F88
         base: Client::System::Input::RepeatCounter
-    vfuncs:
-      0: dtor
     funcs:
       0x1405E7AC0: ctor
+      0x1405E8200: ProcessKeyboardInputMessage # static
   Client::System::Input::VibrationControl:
     vtbls:
       - ea: 0x1421916F0
@@ -2865,6 +2885,20 @@ classes:
     vtbls:
       - ea: 0x14240CE70
         base: Client::Game::WKS::WKSMechaEventStageHandlerBase
+  Client::Game::XBMManager: # Beastmaster
+    instances:
+      - ea: 0x142AFB670
+        pointer: true
+    funcs:
+      0x141975A00: GetInstance
+      0x141975A10: HasInstance
+      0x141975A30: Create
+      0x141975A80: Destroy
+      0x141975AC0: Update
+      0x141975B00: RequestPetList
+      0x141975B40: SetPetUnlocked
+      0x141975B90: HandlePetListPacket
+      0x1419760A0: IsPetUnlocked
   Client::System::String::Utf8String:
     funcs:
       0x140088820: ctor  # empty string ctor
@@ -3148,6 +3182,7 @@ classes:
       - ea: 0x142ACC938
     funcs:
       0x140BDE180: ReadPacket
+      0x140954300: SetFreeAetheryteId
       0x140BE2110: SetCharacterName   # inlined
       0x140BE2210: SetClassJobId
       0x140BE22E0: GetClassJobId
@@ -3872,6 +3907,8 @@ classes:
       0x1408EF7B0: SwapBlueMageActionSlots
       0x1408EF8D0: SetBlueMageActions
       0x1408EFFA0: CanAssignBlueMageAction
+      0x1408F0590: GetBeastmasterPet
+      0x1408F05B0: SetProcTimer
       0x1408F0710: UseActionFromShell
       0x1408F08C0: IsAreaTargetingModeActive
       0x1408F08E0: IsAreaTargetingUnlockedFromCursor
@@ -6646,6 +6683,7 @@ classes:
       0x140B4F290: HandleQuestManagerUnkArray2SecondHalfEntryPacket
       0x140B4FAF0: HandleCurrentBannerDataPacket
       0x140B4FB10: HandleCurrentCharaCardDataPacket
+      0x140B4FDB0: HandleXBMPetListPacket
       0x140B525B0: HandleGatheringSuccessfulChainCountPacket
       0x140B525C0: HandleQuestManagerUnkArray2FirstHalfPacket
       0x140B52630: HandleQuestManagerUnkArray2FirstHalfEntryPacket
@@ -9432,7 +9470,7 @@ classes:
       0x140690870: SetFrameLabelId
       0x1406908B0: ResetFrame # unused
       0x140690970: SetCooldownProgress
-      0x140690A70: SetComboBorder # unsure
+      0x140690A70: SetComboBorder
       0x140690B10: SetDyeColor
       0x140690B40: SetIconImageDisableState
       0x140690BB0: IsDisabled
@@ -9443,8 +9481,10 @@ classes:
       0x140690CC0: SetIsMacro
       0x140690D00: SetIsGlamoured
       0x140690D40: SetIsRecipe
+      0x140690D80: SetIsCommandPanelShortcut
       0x140690DC0: SetComboLevel
-      0x140690E20: SetUnk8192
+      0x140690E20: SetUnk14
+      0x140690E50: CopyIndicators
       0x140690F50: SetOuterResNode
       0x140690FB0: ctor
       0x1406919E0: UpdateIndicator
@@ -9814,7 +9854,7 @@ classes:
       0x1406D0B10: GetQuantityText
       0x1406D0B40: SetQuantityText
       0x1406D0BC0: SetQuantity
-      0x1406D0CE0: SetIconDisableState
+      0x1406D0CE0: SetIconEnabled
       0x1406D0FD0: AttachTooltip
       0x1406D1040: DetachTooltip
       0x1406D1120: PlayAnimation
@@ -11022,6 +11062,11 @@ classes:
         base: Client::UI::Misc::UserFileManager::UserFileEvent
     funcs:
       0x14081A6D0: ctor
+      0x14081AA60: IsNewPetSeen
+      0x14081AAB0: SetPetMirage
+      0x14081AB40: GetPetMirage
+      0x14081AB90: SetPetSize
+      0x14081AC20: GetPetSize
   Client::UI::Misc::XBMModule:
     vtbls:
       - ea: 0x1421954C0
@@ -16434,6 +16479,7 @@ classes:
         base: Client::UI::Agent::AgentInterface
     funcs:
       0x140AAB8F0: ctor
+      0x140AAC470: HandlePetListPacket
   Client::UI::Agent::AgentXBMPetParty:
     vtbls:
       - ea: 0x1421A5330
@@ -18432,7 +18478,7 @@ classes:
       0x140B86A50: GetTourismDirector
       0x140B86A80: GetTripleTriadDirector
       0x140B86B60: GetSkyIslandDirector
-      0x140B86AB0: GetInstanceContentDirectorType22 # related to XBM
+      0x140B86AB0: GetCrucibleOfTheUnbrokenDirector # related to XBM
       0x140B86AE0: GetKeyboundBrawlerDirector
       0x140B86B10: GetPvPInstanceContentDirector # either of: CrystallineConflict, Frontlines or RivalWing
       0x140B86B90: GetPublicContentDirector
@@ -23291,6 +23337,7 @@ classes:
         base: Component::GUI::AtkUnitBase
     funcs:
       0x14136AED0: ctor
+      0x14136BB10: SetTab
   Client::UI::AddonShopExchangeCurrencyDialog: # 553
     vtbls:
       - ea: 0x14223EB48
@@ -25637,7 +25684,7 @@ classes:
         base: Component::GUI::AtkUnitBase
     funcs:
       0x14152E4E0: ctor
-  Client::UI::AddonXBMMonsterNotebookDetail: # 975
+  Client::UI::AddonXBMMonsterBookDetail: # 975
     vtbls:
       - ea: 0x1422845A8
         base: Component::GUI::AtkUnitBase
@@ -25715,13 +25762,19 @@ classes:
         base: Component::GUI::AtkUnitBase
     funcs:
       0x14153CD60: ctor
-  Client::UI::AddonEventImage: # 988
+  Client::UI::AddonXBMPresetPreview: # 988
+    vtbls:
+      - ea: 0x142286650
+        base: Component::GUI::AtkUnitBase
+    funcs:
+      0x14153D0F0: ctor
+  Client::UI::AddonEventImage: # 989
     vtbls:
       - ea: 0x142255A78
         base: Component::GUI::AtkUnitBase
     funcs:
       0x14138E160: ctor
-  Client::UI::AddonKeyBoardInput: # 989
+  Client::UI::AddonKeyBoardInput: # 990
     vtbls:
       - ea: 0x142205710
         base: Component::GUI::AtkUnitBase
