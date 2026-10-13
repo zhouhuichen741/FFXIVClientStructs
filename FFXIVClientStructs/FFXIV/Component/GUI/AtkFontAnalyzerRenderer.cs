@@ -6,6 +6,7 @@ namespace FFXIVClientStructs.FFXIV.Component.GUI;
 [GenerateInterop]
 [Inherits<AtkFontAnalyzerBase>]
 [StructLayout(LayoutKind.Explicit, Size = 0x520)]
+[VirtualTable("48 8D 05 ?? ?? ?? ?? 48 89 83 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 48 89 BB ?? ?? ?? ?? 48 89 BB", 3)]
 public partial struct AtkFontAnalyzerRenderer {
     [FieldOffset(0x130)] public AtkFontAnalyzerRenderCount AtkFontAnalyzerRenderCount;
 }

@@ -231,6 +231,7 @@ class BaseApi:
                 for sm in struct["static_members"]:
                     static_members.append(
                         DefinedStructStaticMember(
+                            sm["name"],
                             sm["signature"],
                             sm["relative_follow_offsets"],
                             sm["return_type"],
@@ -573,7 +574,13 @@ if api is None:
                             exit()
                 
                 last_offset = -1
+                has_inlined_base = False
                 for field in struct.fields:
+                    # a baseclass at a non-zero offset is inlined as a regular member and is
+                    # covered by the struct size check below
+                    if field.base and not field.srclang_is_baseclass:
+                        has_inlined_base = True
+
                     if field.offset == last_offset:
                         continue
 
@@ -595,6 +602,15 @@ if api is None:
 
                     if (udm.offset / 8) != field.offset:
                         ida_kernwin.warning(f"Field \"{field_name}\" offset mismatch in struct {cname} ({struct.type}) during validation.\nExpected {field.offset}, got {(udm.offset/8)}")
+                        exit()
+
+                if has_inlined_base and struct.size:
+                    actual_size = ti.get_size()
+                    if actual_size != struct.size:
+                        ida_kernwin.warning(
+                            f"Size mismatch in struct {cname} ({struct.type}) during validation.\n"
+                            f"Expected {struct.size}, got {actual_size}"
+                        )
                         exit()
 
             def get_srclang_fill_type(self, available_bytes: int, current_offset: int) -> tuple[str, int]:
@@ -670,7 +686,10 @@ if api is None:
                         contiguous_fields = False
                         cur_size = self.append_srclang_padding(decl, cur_size, offset)
 
-                    field_is_base = field.base and contiguous_fields
+                    # NOTE IDA only ever emits baseclass members at offset zero, so a baseclass
+                    # declared at a non-zero offset has to be inlined as a regular member,
+                    # otherwise it lands at zero and shifts the whole layout.
+                    field_is_base = field.base and contiguous_fields and offset == 0
                     field_name = (
                         field.name
                         if not field_is_base
@@ -1182,15 +1201,10 @@ if api is None:
                     self.get_tinfo_from_type(return_type),
                     ida_typeinf.TINFO_DEFINITE,
                 )
-                if static_member.is_pointer:
-                    ida_name.set_name(
-                        ea,
-                        "g_{0}_{1}".format(self.clean_name(struct.type), "PtrInstance"),
-                    )
-                else:
-                    ida_name.set_name(
-                        ea, "g_{0}_{1}".format(self.clean_name(struct.type), "Instance")
-                    )
+                ida_name.set_name(
+                    ea,
+                    "g_{0}_{1}".format(self.clean_name(struct.type), static_member.name),
+                )
 
             def should_update_member_func(self):
                 return (
