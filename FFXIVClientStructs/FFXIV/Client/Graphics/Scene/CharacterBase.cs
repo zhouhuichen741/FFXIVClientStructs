@@ -118,8 +118,18 @@ public unsafe partial struct CharacterBase {
     public Span<Pointer<Texture>> ColorTableTexturesSpan => new(ColorTableTextures, SlotCount * MaterialsPerSlot);
     public Span<Pointer<MaterialResourceHandle>> MaterialsSpan => new(Materials, SlotCount * MaterialsPerSlot);
 
+    /// <summary>
+    /// Creates a new character based on the given model ID, customization data, and equipment IDs.
+    /// </summary>
+    /// <param name="modelId">The model ID, corresponding to a row in the <c>ModelChara</c> Excel sheet.</param>
+    /// <param name="customize">The customization data to use if the model is a <see cref="Human"/>.</param>
+    /// <param name="equipData">The equipment models to use. <see cref="Human"/> characters use 10, <see cref="Demihuman"/> characters use 5,
+    ///     and <see cref="Monster"/> characters don't use any.</param>
+    /// <param name="characterUsage">0 for a normal character, 1 for a mount, and 2 for an ornament. Affects the animation sets loaded.</param>
+    /// <returns>The newly created <see cref="Human"/>, <see cref="Demihuman"/>, or <see cref="Monster"/> based on the
+    ///     <c>Type</c> of the <c>ModelChara</c> for this model ID.</returns>
     [MemberFunction("E8 ?? ?? ?? ?? 48 8B 4F 08 48 8B D0 4C 8B 01")]
-    public static partial CharacterBase* Create(uint modelId, CustomizeData* customize, EquipmentModelId* equipData /* 10 times, 80 byte */, byte unk);
+    public static partial CharacterBase* Create(uint modelId, CustomizeData* customize, EquipmentModelId* equipData, byte characterUsage);
 
     [MemberFunction("E8 ?? ?? ?? ?? 40 F6 C7 01 74 3A 40 F6 C7 04 75 27 48 85 DB 74 2F 48 8B 05 ?? ?? ?? ?? 48 8B D3 48 8B 48 30")]
     public partial void Destroy();
@@ -134,6 +144,110 @@ public unsafe partial struct CharacterBase {
     /// <param name="slot">The slot to set up.</param>
     [MemberFunction("89 54 24 ?? 55 56 41 56 48 81 EC")]
     public partial nint SetupSlotModel(uint slot); // TODO: change return type to void
+
+    /// <summary>
+    /// Returns whether the given look-at group is currently enabled.
+    /// </summary>
+    /// <param name="groupIndex">The index of the group, in <see cref="LookAtIkModule.Groups"/>.</param>
+    /// <returns>Whether the group is enabled.</returns>
+    [MemberFunction("E8 ?? ?? ?? ?? 84 C0 74 79 8B C7")]
+    public partial bool IsLookAtEnabled(int groupIndex);
+
+    /// <summary>
+    /// Enables the given look-at group.
+    /// </summary>
+    /// <param name="groupIndex">The index of the look-at group to enable, in <see cref="LookAtIkModule.Groups"/>, or negative to enable all the groups.</param>
+    [MemberFunction("E8 ?? ?? ?? ?? F6 44 24 ?? ?? 0F 84 ?? ?? ?? ?? F3 0F 10 84 3B")]
+    public partial void EnableLookAt(int groupIndex);
+
+    /// <summary>
+    /// Disables the given look-at group.
+    /// </summary>
+    /// <param name="groupIndex">The index of the look-at group to disable, in <see cref="LookAtIkModule.Groups"/>, or negative to disable all the groups.</param>
+    [MemberFunction("E8 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 0F BE 9F")]
+    public partial void DisableLookAt(int groupIndex);
+
+    /// <summary>
+    /// Sets the position for the character to look towards, if its skeleton has a <see cref="LookAtIkModule"/>.
+    /// </summary>
+    /// <remarks>
+    /// Generally this is called every frame in the <see cref="LookAtIkModule.PrepareGroupCallback"/>.
+    /// </remarks>
+    /// <param name="groupIndex">The index of the look-at group to set the position for, in <see cref="LookAtIkModule.Groups"/>, or negative to set the position for all groups.</param>
+    /// <param name="position">The position for the group to look at.</param>
+    [MemberFunction("48 8B 89 ?? ?? ?? ?? 49 8B C0")]
+    public partial void SetLookAtTargetPosition(int groupIndex, Vector3* position);
+
+    /// <summary>
+    /// Gets the amount of influence a look-at group has.
+    /// </summary>
+    /// <remarks>
+    /// The native version of this function has no xrefs (it's probably inlined) and it's too small to get a decent sig so it is copied here.
+    /// </remarks>
+    /// <param name="groupIndex">The index of the look-at group to get the influence of, in <see cref="LookAtIkModule.Groups"/>.</param>
+    /// <returns>The influence of the look-at group.</returns>
+    public float GetLookAtInfluence(int groupIndex) {
+        var skeleton = Skeleton;
+        if (skeleton != null) {
+            var lookAtIkModule = skeleton->LookAtIkModule;
+            if (lookAtIkModule != null) {
+                return lookAtIkModule->Groups[groupIndex][0].Amount;
+            } else {
+                return 0.0f;
+            }
+        } else {
+            return 0.0f;
+        }
+    }
+
+    /// <summary>
+    /// Sets the amount of influence a look-at group has.
+    /// </summary>
+    /// <param name="newInfluence">How much influence the group(s) will have.</param>
+    /// <param name="groupIndex">The index of the look-at group to set the influence of, in <see cref="LookAtIkModule.Groups"/>, or negative to set the influence for all groups.</param>
+    [MemberFunction("E8 ?? ?? ?? ?? 44 38 A7 ?? ?? ?? ?? 75 19")]
+    public partial void SetLookAtInfluence(float newInfluence, int groupIndex);
+
+    /// <summary>
+    /// Gets the number of look-at groups in this character's <see cref="LookAtIkModule"/>.
+    /// </summary>
+    [MemberFunction("E8 ?? ?? ?? ?? 41 89 86 ?? ?? ?? ?? 48 8D 3D")]
+    public partial uint GetLookAtGroupCount();
+
+    /// <summary>
+    /// Gets the current transform of the last bone in a look-at group.
+    /// </summary>
+    /// <param name="outTransform">The matrix to store the transform in.</param>
+    /// <param name="groupIndex">The index of the look-at group to get the transform of, in <see cref="LookAtIkModule.Groups"/>.</param>
+    /// <returns><paramref name="outTransform"/></returns>
+    [MemberFunction("E8 ?? ?? ?? ?? 0F 28 44 24 ?? 33 DB")]
+    public partial Matrix4x4* GetLookAtGroupTransform(Matrix4x4* outTransform, uint groupIndex);
+
+    /// <summary>
+    /// Transforms the given matrix in model space to world space via the <see cref="LookAtIkModule"/>.
+    /// </summary>
+    /// <param name="outWorldSpaceTransform">The matrix to store the resulting transform in.</param>
+    /// <param name="inModelSpaceTransform">The input transform relative to the model.</param>
+    /// <returns><paramref name="outWorldSpaceTransform"/></returns>
+    [MemberFunction("E8 ?? ?? ?? ?? 0F 28 45 C7")]
+    public partial Matrix4x4* TransformLookAtModelSpaceToWorldSpace(Matrix4x4* outWorldSpaceTransform, Matrix4x4* inModelSpaceTransform);
+
+    /// <summary>
+    /// Searches the <see cref="LookAtIkModule"/> for a look-at group with the given ID.
+    /// </summary>
+    /// <param name="groupId">The ID to search for.</param>
+    /// <returns>The index of the group, or -1 if none were found.</returns>
+    [MemberFunction("E8 ?? ?? ?? ?? 89 03 48 8D 5B 04"), GenerateStringOverloads]
+    public partial int FindLookAtGroup(CStringPointer groupId);
+
+    /// <summary>
+    /// Sets the callbacks to use when updating the <see cref="LookAtIkModule"/>.
+    /// </summary>
+    /// <param name="callbackParameter">An arbitrary parameter to be passed through to the callbacks.</param>
+    /// <param name="prepareGroupCallback">A callback to run before a look-at group is solved. Invoked on any thread.</param>
+    /// <param name="finishedCallback">A callback to run after all the look-at groups have been solved. Invoked on any thread.</param>
+    [MemberFunction("E8 ?? ?? ?? ?? 8B 83 ?? ?? ?? ?? 85 C0 0F 84 ?? ?? ?? ?? 83 E8 01 74 59")]
+    public partial void SetupLookAtCallbacks(void* callbackParameter, void* prepareGroupCallback, void* finishedCallback);
 
     /// <summary>
     /// Begins playing the specified animation, adding to the given animation controller handle or creating a new one as needed.
